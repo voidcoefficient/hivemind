@@ -529,6 +529,7 @@ dependencies = [
  "anyhow",
  "apache-avro",
  "async-nats",
+ "bytes",
  "futures",
  "serde",
  "tokio",

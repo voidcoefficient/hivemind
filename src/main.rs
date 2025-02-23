@@ -1,12 +1,14 @@
+pub mod avro;
 pub mod tasks;
 
 use std::env;
 
-use apache_avro::{Reader, Schema, Writer, from_value};
+use apache_avro::{Reader, Schema, from_value};
 use async_nats::{
 	connect,
 	jetstream::{self, consumer, stream::DiscardPolicy},
 };
+use avro::serialize_avro;
 use futures::StreamExt;
 use tasks::Task;
 
@@ -45,14 +47,12 @@ async fn main() -> anyhow::Result<()> {
     }
     "#;
 	let task_schema = Schema::parse_str(task_raw_schema)?;
-	let mut writer = Writer::with_codec(&task_schema, Vec::new(), apache_avro::Codec::Deflate);
 
 	let added_task = Task {
 		title: "My task".to_owned(),
 		..Default::default()
 	};
-	writer.append_ser(added_task)?;
-	let encoded_task = writer.into_inner()?;
+	let encoded_task = serialize_avro(&task_schema, added_task)?;
 	client.publish("tasks", encoded_task.into()).await?;
 
 	let mut tasks = tasks_stream_consumer.stream().messages().await?;
