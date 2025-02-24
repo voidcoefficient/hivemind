@@ -1,35 +1,15 @@
 pub mod avro;
 pub mod nats;
+pub mod process;
 pub mod tasks;
-
-use std::env;
-
 use apache_avro::{Reader, Schema, from_value};
-use async_nats::{
-	connect,
-	jetstream::{self, consumer, stream::DiscardPolicy},
-};
+use async_nats::service::{self, ServiceExt};
 use chrono::Local;
 use clap::{ArgAction, arg, command, crate_authors};
-use futures::StreamExt;
+use futures::{StreamExt, future::join};
 use nats::get_client;
-use tasks::{Task, serialize_task};
-
-pub const TASK_RAW_SCHEMA: &str = r#"
-  {
-    "type": "record",
-    "name": "task",
-    "fields": [
-      { "name": "id", "type": "string", "logicalType": "uuid" },
-      { "name": "title", "type": "string" },
-      { "name": "description", "type": ["null", "string"], "default": null },
-      { "name": "completed", "type": "boolean", "default": false },
-      { "name": "created_at", "type": "long", "logicalType": "local-timestamp-millis" },
-      { "name": "updated_at", "type": "long", "logicalType": "local-timestamp-millis" },
-      { "name": "completed_at", "type": ["null", "long"], "logicalType": "local-timestamp-millis", "default": null }
-    ]
-  }
-"#;
+use process::TaskProcessor;
+use tasks::{CreateTask, CreateTaskSerde, Model, Task};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -50,16 +30,17 @@ async fn main() -> anyhow::Result<()> {
 							arg!(-c --completed [COMPLETED] "if the task is completed or not (default: false)")
 								.action(ArgAction::SetTrue),
 						),
-				)
-				.subcommand(command!("edit").about("edit a task"))
-				.subcommand(command!("delete").about("delete a task"))
-				.subcommand(command!("view").about("view one or more tasks")),
+				),
 		)
 		.get_matches();
 
+	let client = get_client().await?;
 	match matches.subcommand() {
 		Some(subcommand) => match subcommand {
-			("start", _sub_matches) => start_hivemind().await?,
+			("start", _sub_matches) => {
+				let processor = TaskProcessor::new(client);
+				join(processor.process_tasks(), task_service()).await;
+			}
 			("tasks", sub_matches) => match sub_matches.subcommand() {
 				Some(("create", sub_matches)) => {
 					let title = sub_matches.get_one::<String>("title").unwrap().to_owned();
@@ -68,22 +49,16 @@ async fn main() -> anyhow::Result<()> {
 						.map(|d| d.to_owned());
 					let completed = sub_matches.get_flag("completed");
 
-					let task = Task {
-						id: uuid::Uuid::new_v4(),
+					let task = CreateTask {
 						title,
 						description,
 						completed,
-						created_at: Local::now().timestamp_millis(),
-						updated_at: Local::now().timestamp_millis(),
-						completed_at: None,
 					};
-					let encoded_task = serialize_task(task.clone())?;
+					let encoded_task = CreateTaskSerde::serialize(task.clone())?;
 
-					let client = get_client().await?;
-					client.publish("tasks", encoded_task).await?;
-					client.flush().await?;
+					client.request("tasks.create", encoded_task).await?;
 
-					println!("created task \"{}\"", task.id);
+					println!("created task \"{}\"", task.title);
 				}
 				_ => unreachable!("subcommands were covered"),
 			},
@@ -95,39 +70,31 @@ async fn main() -> anyhow::Result<()> {
 	Ok(())
 }
 
-async fn start_hivemind() -> anyhow::Result<()> {
-	let nats_url = env::var("NATS_URL").unwrap_or("nats://localhost:4222".to_string());
-	let client = connect(nats_url).await?;
-	let jetstream = jetstream::new(client.clone());
-
-	let tasks_stream = jetstream
-		.get_or_create_stream(jetstream::stream::Config {
-			name: "tasks-stream".to_string(),
-			discard: DiscardPolicy::New,
-			subjects: vec!["tasks".to_string()],
-			..Default::default()
+async fn task_service() -> anyhow::Result<()> {
+	let client = get_client().await?;
+	let service = client
+		.add_service(service::Config {
+			name: "tasks".to_owned(),
+			version: "0.1.0".to_owned(),
+			description: None,
+			stats_handler: None,
+			metadata: None,
+			queue_group: None,
 		})
-		.await?;
-	let tasks_stream_consumer = tasks_stream
-		.get_or_create_consumer(
-			"pull",
-			consumer::pull::Config {
-				..Default::default()
-			},
-		)
-		.await?;
+		.await
+		.expect("should happen");
+	let tasks_group = service.group("tasks");
+	let mut endpoint = tasks_group.endpoint("create").await.expect("should happen");
 
-	let task_schema = Schema::parse_str(TASK_RAW_SCHEMA)?;
-
-	let mut tasks = tasks_stream_consumer.stream().messages().await?;
-	while let Some(task) = tasks.next().await {
-		let record = task?;
-		let data = record.payload.clone();
-		let reader = Reader::with_schema(&task_schema, &data[..])?;
-		for value in reader {
-			let record = value?;
-			let task: Task = from_value(&record)?;
-			println!("Task: {:?}", task);
+	while let Some(request) = endpoint.next().await {
+		let data = request.message.payload.clone();
+		match CreateTaskSerde::deserialize(data) {
+			Some(task) => {
+				let serialized_task = CreateTaskSerde::serialize(task)?;
+				client.publish("tasks", serialized_task).await?;
+				request.respond(Ok("200".into())).await.unwrap();
+			}
+			None => request.respond(Ok("error".into())).await?,
 		}
 	}
 
