@@ -152,11 +152,6 @@ fn task_list_command() -> Command {
 }
 
 fn task_list_action(c: &Context) {
-	if !c.args.is_empty() {
-		eprintln!("wrong amount of arguments passed. try running `hm task list --help`");
-		exit(1);
-	}
-
 	if c.bool_flag("completed") {
 		println!(
 			"{}",
