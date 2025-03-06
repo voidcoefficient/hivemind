@@ -14,6 +14,7 @@ pub fn task_command() -> Command {
 		.usage("hm task(t) [subcommand]")
 		.command(task_add_command())
 		.command(task_edit_command())
+		.command(task_done_command())
 		.command(task_get_command())
 		.command(task_list_command())
 }
@@ -79,7 +80,36 @@ fn task_edit_action(c: &Context) {
 				description,
 				completed,
 			}));
-			println!("successfully updated task #{}", id);
+			println!("successfully updated task \"{}\"", id);
+		}
+		Err(e) => eprintln!("{}", e),
+	}
+}
+
+fn task_done_command() -> Command {
+	Command::new("done")
+		.description("mark a task as completed")
+		.alias("d")
+		.usage("hm task(t) done(d) [uuid]")
+		.action(task_done_action)
+}
+
+fn task_done_action(c: &Context) {
+	if c.args.len() != 1 {
+		eprintln!("wrong amount of arguments passed\n");
+		c.help();
+		exit(1);
+	}
+
+	match Uuid::from_str(&c.args[0]) {
+		Ok(id) => {
+			let id = block_on(db::update(EditTask {
+				id,
+				title: None,
+				description: None,
+				completed: Some(true),
+			}));
+			println!("successfully marked task \"{}\" as completed", id);
 		}
 		Err(e) => eprintln!("{}", e),
 	}
@@ -103,7 +133,7 @@ fn task_get_action(c: &Context) {
 	match Uuid::from_str(id) {
 		Ok(uuid) => match block_on(db::get(uuid)) {
 			Some(task) => println!("{}", task),
-			None => eprintln!("could not find task #{}", id),
+			None => eprintln!("could not find task \"{}\"", id),
 		},
 		Err(e) => eprintln!("{}", e),
 	}

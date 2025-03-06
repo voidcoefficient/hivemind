@@ -75,7 +75,7 @@ fn asset_edit_action(c: &Context) {
 				description,
 				amount,
 			}));
-			println!("successfully updated asset #{}", id);
+			println!("successfully updated asset \"{}\"", id);
 		}
 		Err(e) => eprintln!("{}", e),
 	}
@@ -99,7 +99,7 @@ fn asset_get_action(c: &Context) {
 	match Uuid::from_str(id) {
 		Ok(uuid) => match block_on(db::get(uuid)) {
 			Some(asset) => println!("{}", asset),
-			None => eprintln!("could not find asset #{}", id),
+			None => eprintln!("could not find asset \"{}\"", id),
 		},
 		Err(e) => eprintln!("{}", e),
 	}

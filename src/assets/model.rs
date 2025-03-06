@@ -11,7 +11,6 @@ pub struct Model {
 	pub id: Uuid,
 	pub title: String,
 	pub description: Option<String>,
-	//  TODO: pub location: Location,
 	//  TODO: pub tags: Vec<Tag>,
 	pub amount: i32,
 	pub created_at: DateTime,

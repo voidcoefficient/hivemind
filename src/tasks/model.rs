@@ -12,6 +12,7 @@ pub struct Model {
 	pub title: String,
 	pub description: Option<String>,
 	pub completed: bool,
+	//  TODO: pub tags: Vec<Tag>,
 	pub created_at: DateTime,
 	pub updated_at: DateTime,
 }
@@ -26,7 +27,7 @@ impl Display for Model {
 		let description = self.description.clone().unwrap_or("".to_string());
 		write!(
 			f,
-			"asset\t\t{}\ntitle\t\t{}\ndescription\t{}\ncompleted\t\t{}\ncreated at\t{}\nupdated at\t{}",
+			"asset\t\t{}\ntitle\t\t{}\ndescription\t{}\ncompleted\t{}\ncreated at\t{}\nupdated at\t{}",
 			self.id, self.title, description, self.completed, self.created_at, self.updated_at,
 		)
 	}
