@@ -31,7 +31,7 @@ async fn main() -> anyhow::Result<()> {
 		.usage("hm [args]")
 		.command(asset_command())
 		.command(task_command())
-		.flag(Flag::new("debug", FlagType::Bool));
+		.flag(Flag::new("debug", FlagType::Bool).description("enables debugging information"));
 
 	let debug = args.iter().any(|arg| arg == "--debug");
 	setup_tracing(debug);
