@@ -1,102 +1,101 @@
-pub mod avro;
-pub mod nats;
-pub mod process;
-pub mod tasks;
-use apache_avro::{Reader, Schema, from_value};
-use async_nats::service::{self, ServiceExt};
-use chrono::Local;
-use clap::{ArgAction, arg, command, crate_authors};
-use futures::{StreamExt, future::join};
-use nats::get_client;
-use process::TaskProcessor;
-use tasks::{CreateTask, CreateTaskSerde, Model, Task};
+pub mod assets;
+
+use std::{env, process::exit, str::FromStr};
+
+use assets::{CreateAsset, db};
+use futures::executor::block_on;
+use seahorse::{App, Command, Context};
+use uuid::Uuid;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-	let matches = command!()
-		.author(crate_authors!("\n"))
-		.subcommand_required(true)
-		.subcommand(command!("start").about("starts up hivemind"))
-		.subcommand(
-			command!("tasks")
-				.about("manage tasks")
-				.subcommand_required(true)
-				.subcommand(
-					command!("create")
-						.about("create a task")
-						.arg(arg!(-t --title <TITLE> "tasks's title").required(true))
-						.arg(arg!(-d --description [DESCRIPTION] "tasks's description"))
-						.arg(
-							arg!(-c --completed [COMPLETED] "if the task is completed or not (default: false)")
-								.action(ArgAction::SetTrue),
-						),
-				),
-		)
-		.get_matches();
+	let args: Vec<String> = env::args().collect();
+	let app = App::new(env!("CARGO_PKG_NAME"))
+		.description(env!("CARGO_PKG_DESCRIPTION"))
+		.author(env!("CARGO_PKG_AUTHORS"))
+		.version(env!("CARGO_PKG_VERSION"))
+		.usage("hivemind [args]")
+		.command(asset_command());
 
-	let client = get_client().await?;
-	match matches.subcommand() {
-		Some(subcommand) => match subcommand {
-			("start", _sub_matches) => {
-				let processor = TaskProcessor::new(client);
-				join(processor.process_tasks(), task_service()).await;
-			}
-			("tasks", sub_matches) => match sub_matches.subcommand() {
-				Some(("create", sub_matches)) => {
-					let title = sub_matches.get_one::<String>("title").unwrap().to_owned();
-					let description = sub_matches
-						.get_one::<String>("description")
-						.map(|d| d.to_owned());
-					let completed = sub_matches.get_flag("completed");
-
-					let task = CreateTask {
-						title,
-						description,
-						completed,
-					};
-					let encoded_task = CreateTaskSerde::serialize(task.clone())?;
-
-					client.request("tasks.create", encoded_task).await?;
-
-					println!("created task \"{}\"", task.title);
-				}
-				_ => unreachable!("subcommands were covered"),
-			},
-			_ => unreachable!("subcommands were covered"),
-		},
-		_ => unreachable!("or todo"),
-	}
-
+	app.run(args);
 	Ok(())
 }
 
-async fn task_service() -> anyhow::Result<()> {
-	let client = get_client().await?;
-	let service = client
-		.add_service(service::Config {
-			name: "tasks".to_owned(),
-			version: "0.1.0".to_owned(),
-			description: None,
-			stats_handler: None,
-			metadata: None,
-			queue_group: None,
-		})
-		.await
-		.expect("should happen");
-	let tasks_group = service.group("tasks");
-	let mut endpoint = tasks_group.endpoint("create").await.expect("should happen");
+fn asset_command() -> Command {
+	Command::new("asset")
+		.description("an object with an amount")
+		.alias("a")
+		.usage("hivemind asset(a) [subcommand]")
+		.command(asset_add_command())
+		.command(asset_get_command())
+		.command(asset_list_command())
+}
 
-	while let Some(request) = endpoint.next().await {
-		let data = request.message.payload.clone();
-		match CreateTaskSerde::deserialize(data) {
-			Some(task) => {
-				let serialized_task = CreateTaskSerde::serialize(task)?;
-				client.publish("tasks", serialized_task).await?;
-				request.respond(Ok("200".into())).await.unwrap();
-			}
-			None => request.respond(Ok("error".into())).await?,
-		}
+fn asset_add_command() -> Command {
+	Command::new("add")
+		.description("create an asset")
+		.alias("a")
+		.usage("hivemind asset(a) add(a) [title]")
+		.action(asset_add_action)
+}
+
+fn asset_add_action(c: &Context) {
+	if c.args.len() != 1 {
+		eprintln!("wrong amount of arguments passed. try running `hivemind asset add --help`");
+		exit(1);
 	}
 
-	Ok(())
+	let title = (c.args[0]).clone();
+	match block_on(db::insert(CreateAsset {
+		title,
+		description: None,
+	})) {
+		Ok(id) => println!("successfully created asset of id \"{}\"", id),
+		Err(e) => eprintln!("{}", e),
+	}
+}
+
+fn asset_get_command() -> Command {
+	Command::new("get")
+		.description("get one asset")
+		.alias("g")
+		.usage("hivemind asset(a) get(g) [uuid]")
+		.action(asset_get_action)
+}
+
+fn asset_get_action(c: &Context) {
+	if c.args.len() != 1 {
+		eprintln!("wrong amount of arguments passed. try running `hivemind asset get --help`");
+		exit(1);
+	}
+
+	let id = &(c.args[0]);
+	match Uuid::from_str(id) {
+		Ok(uuid) => match block_on(db::get(uuid)) {
+			Ok(asset) => println!("{:?}", asset),
+			Err(e) => eprintln!("{}", e),
+		},
+		Err(e) => eprintln!("{}", e),
+	}
+}
+
+fn asset_list_command() -> Command {
+	Command::new("list")
+		.description("list assets")
+		.alias("l")
+		.alias("ls")
+		.usage("hivemind asset(a) list(l)")
+		.action(asset_list_action)
+}
+
+fn asset_list_action(c: &Context) {
+	if c.args.len() != 0 {
+		eprintln!("wrong amount of arguments passed. try running `hivemind asset list --help`");
+		exit(1);
+	}
+
+	match block_on(db::list()) {
+		Ok(assets) => assets.iter().for_each(|asset| println!("{:?}", asset)),
+		Err(e) => eprintln!("{}", e),
+	};
 }

@@ -5,11 +5,9 @@
   env.DATABASE_URL = "postgres://postgres:postgres@localhost:5432/hivemind";
 
   # https://devenv.sh/packages/
-  packages = with pkgs; [ nats-server nats-streaming-server natscli nats-top nsc ];
+  packages = with pkgs; [ sqlx-cli nats-server nats-streaming-server natscli nats-top nsc ];
 
   # https://devenv.sh/languages/
-  # languages.rust.enable = true;
-  # languages.rust.channel = "nightly";
   languages.deno.enable = true;
 
   # https://devenv.sh/processes/

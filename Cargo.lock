@@ -830,6 +830,8 @@ dependencies = [
  "chrono",
  "clap",
  "futures",
+ "itertools",
+ "seahorse",
  "serde",
  "sqlx",
  "tokio",
@@ -1058,6 +1060,15 @@ name = "is_terminal_polyfill"
 version = "1.70.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7943c866cc5cd64cbc25b2e01621d07fa8eb2a1a23160ee81ce38704e97b8ecf"
+
+[[package]]
+name = "itertools"
+version = "0.14.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2b192c782037fadd9cfa75548310488aabdbf3d2da73885b31bd0abd03351285"
+dependencies = [
+ "either",
+]
 
 [[package]]
 name = "itoa"
@@ -1674,6 +1685,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "94143f37725109f92c262ed2cf5e59bce7498c01bcc1502d7b9afe439a4e9f49"
 
 [[package]]
+name = "seahorse"
+version = "2.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d25679a62f678e7485f21abdea76f91a15322a0fe51efea791fd9d124f1c473c"
+
+[[package]]
 name = "security-framework"
 version = "2.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1912,6 +1929,7 @@ dependencies = [
  "sha2",
  "smallvec",
  "thiserror 2.0.11",
+ "time",
  "tokio",
  "tokio-stream",
  "tracing",
@@ -1996,6 +2014,7 @@ dependencies = [
  "sqlx-core",
  "stringprep",
  "thiserror 2.0.11",
+ "time",
  "tracing",
  "uuid",
  "whoami",
@@ -2034,6 +2053,7 @@ dependencies = [
  "sqlx-core",
  "stringprep",
  "thiserror 2.0.11",
+ "time",
  "tracing",
  "uuid",
  "whoami",
@@ -2058,6 +2078,7 @@ dependencies = [
  "serde",
  "serde_urlencoded",
  "sqlx-core",
+ "time",
  "tracing",
  "url",
  "uuid",
