@@ -9,10 +9,11 @@ use super::{CreateAsset, GetAsset};
 pub async fn insert(asset: CreateAsset) -> Result<String> {
 	let pool = &PgPool::connect(&env::var("DATABASE_URL")?).await?;
 	let rec = query!(
-		r#"insert into assets (id, title, description) values ($1, $2, $3) returning id"#,
+		r#"insert into assets (id, title, description, amount) values ($1, $2, $3, $4) returning id"#,
 		uuid::Uuid::new_v4(),
 		asset.title,
-		asset.description
+		asset.description,
+		asset.amount,
 	)
 	.fetch_one(pool)
 	.await?;

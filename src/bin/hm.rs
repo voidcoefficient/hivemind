@@ -1,14 +1,14 @@
 use std::{env, process::exit, str::FromStr};
 
 use futures::executor::block_on;
-use hivemind::assets::{CreateAsset, db};
-use seahorse::{App, Command, Context};
+use hvmd::assets::{CreateAsset, db};
+use seahorse::{App, Command, Context, Flag, FlagType};
 use uuid::Uuid;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
 	let args: Vec<String> = env::args().collect();
-	let app = App::new(env!("CARGO_PKG_NAME"))
+	let app = App::new("hm")
 		.description(env!("CARGO_PKG_DESCRIPTION"))
 		.author(env!("CARGO_PKG_AUTHORS"))
 		.version(env!("CARGO_PKG_VERSION"))
@@ -34,19 +34,25 @@ fn asset_add_command() -> Command {
 		.description("create an asset")
 		.alias("a")
 		.usage("hm asset(a) add(a) [your asset title]")
+		.flag(Flag::new("description", FlagType::String).alias("d"))
+		.flag(Flag::new("amount", FlagType::Int).alias("a"))
 		.action(asset_add_action)
 }
 
 fn asset_add_action(c: &Context) {
 	if c.args.len() < 1 {
-		eprintln!("wrong amount of arguments passed. try running `hm asset add --help`");
+		eprintln!("wrong amount of arguments passed\n");
+		c.help();
 		exit(1);
 	}
 
 	let title = c.args.join(" ");
+	let description = c.string_flag("description").ok();
+	let amount = c.int_flag("amount").ok().map(|amount| amount as i32);
 	match block_on(db::insert(CreateAsset {
 		title,
-		description: None,
+		description,
+		amount,
 	})) {
 		Ok(id) => println!("successfully created asset of id \"{}\"", id),
 		Err(e) => eprintln!("{}", e),

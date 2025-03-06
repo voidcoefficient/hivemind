@@ -28,6 +28,8 @@
   };
 
   # https://devenv.sh/scripts/
+  scripts.hm.exec = "cargo run --quiet --bin hm -- \"$@\"";
+  scripts.hvmd.exec = "cargo run --quiet --bin hvmd -- \"$@\"";
 
   # https://devenv.sh/tasks/
 

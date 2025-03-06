@@ -1,5 +1,5 @@
 [package]
-name = "hivemind"
+name = "hvmd"
 description = "productivity tool for those who need it the most"
 version = "0.1.0"
 edition = "2024"
