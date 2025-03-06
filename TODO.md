@@ -2,7 +2,7 @@
 
 ## tasks
 
-- [ ] CRUD with CLI
+- [x] CRUD with CLI
 
 ## assets
 
