@@ -4,6 +4,7 @@ description = "productivity tool for those who need it the most"
 version = "0.1.0"
 edition = "2024"
 authors = ["Marla Albuquerque <marla@albuque.com>"]
+license-file = "LICENSE"
 
 [dependencies]
 seahorse = "2.2"
