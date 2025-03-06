@@ -34,7 +34,7 @@ fn task_add_command() -> Command {
 }
 
 fn task_add_action(c: &Context) {
-	if c.args.len() < 1 {
+	if c.args.is_empty() {
 		eprintln!("wrong amount of arguments passed\n");
 		c.help();
 		exit(1);
@@ -63,7 +63,7 @@ fn task_edit_command() -> Command {
 }
 
 fn task_edit_action(c: &Context) {
-	if c.args.len() != 1 {
+	if c.args.is_empty() {
 		eprintln!("wrong amount of arguments passed\n");
 		c.help();
 		exit(1);
@@ -74,6 +74,7 @@ fn task_edit_action(c: &Context) {
 			let title = c.string_flag("title").ok();
 			let description = c.string_flag("description").ok();
 			let completed = Some(c.bool_flag("completed"));
+			dbg!(&completed);
 			let id = block_on(db::update(EditTask {
 				id,
 				title,
@@ -145,13 +146,29 @@ fn task_list_command() -> Command {
 		.alias("l")
 		.alias("ls")
 		.usage("hm task(t) list(l)")
+		.flag(Flag::new("completed", FlagType::Bool).description("filter by completed tasks"))
+		.flag(Flag::new("pending", FlagType::Bool).description("filter by pending tasks"))
 		.action(task_list_action)
 }
 
 fn task_list_action(c: &Context) {
-	if c.args.len() != 0 {
+	if !c.args.is_empty() {
 		eprintln!("wrong amount of arguments passed. try running `hm task list --help`");
 		exit(1);
+	}
+
+	if c.bool_flag("completed") {
+		println!(
+			"{}",
+			block_on(db::list_by_completed(true)).iter().join("\n\n")
+		);
+		exit(0);
+	} else if c.bool_flag("pending") {
+		println!(
+			"{}",
+			block_on(db::list_by_completed(false)).iter().join("\n\n")
+		);
+		exit(0);
 	}
 
 	println!("{}", block_on(db::list()).iter().join("\n\n"));

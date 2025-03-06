@@ -1,12 +1,12 @@
 use std::process::exit;
 
 use sea_orm::ActiveValue::Set;
-use sea_orm::{ActiveModelTrait, EntityTrait};
+use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, QueryOrder};
 use uuid::Uuid;
 
 use crate::db::db;
 
-use super::model::{ActiveModel, Entity as Asset, Model};
+use super::model::{ActiveModel, Column, Entity as Asset, Model};
 use super::{CreateTask, EditTask};
 
 pub async fn insert(create_asset: CreateTask) -> String {
@@ -76,7 +76,26 @@ pub async fn get(id: Uuid) -> Option<Model> {
 }
 
 pub async fn list() -> Vec<Model> {
-	match Asset::find().all(&db().await).await {
+	match Asset::find()
+		.order_by_desc(Column::UpdatedAt)
+		.all(&db().await)
+		.await
+	{
+		Ok(assets) => assets,
+		Err(e) => {
+			eprintln!("{}", e);
+			exit(1);
+		}
+	}
+}
+
+pub async fn list_by_completed(completed: bool) -> Vec<Model> {
+	match Asset::find()
+		.order_by_desc(Column::UpdatedAt)
+		.filter(Column::Completed.eq(completed))
+		.all(&db().await)
+		.await
+	{
 		Ok(assets) => assets,
 		Err(e) => {
 			eprintln!("{}", e);

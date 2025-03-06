@@ -29,7 +29,7 @@ fn asset_add_command() -> Command {
 }
 
 fn asset_add_action(c: &Context) {
-	if c.args.len() < 1 {
+	if c.args.is_empty() {
 		eprintln!("wrong amount of arguments passed\n");
 		c.help();
 		exit(1);
@@ -115,7 +115,7 @@ fn asset_list_command() -> Command {
 }
 
 fn asset_list_action(c: &Context) {
-	if c.args.len() != 0 {
+	if !c.args.is_empty() {
 		eprintln!("wrong amount of arguments passed. try running `hm asset list --help`");
 		exit(1);
 	}
