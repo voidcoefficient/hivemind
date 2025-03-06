@@ -1,7 +1,8 @@
 use std::{env, process::exit, str::FromStr};
 
 use futures::executor::block_on;
-use hvmd::assets::{CreateAsset, db};
+use hvmd::assets::{CreateAsset, EditAsset, db};
+use itertools::Itertools;
 use seahorse::{App, Command, Context, Flag, FlagType};
 use uuid::Uuid;
 
@@ -25,6 +26,7 @@ fn asset_command() -> Command {
 		.alias("a")
 		.usage("hm asset(a) [subcommand]")
 		.command(asset_add_command())
+		.command(asset_edit_command())
 		.command(asset_get_command())
 		.command(asset_list_command())
 }
@@ -49,12 +51,45 @@ fn asset_add_action(c: &Context) {
 	let title = c.args.join(" ");
 	let description = c.string_flag("description").ok();
 	let amount = c.int_flag("amount").ok().map(|amount| amount as i32);
-	match block_on(db::insert(CreateAsset {
+	let id = block_on(db::insert(CreateAsset {
 		title,
 		description,
 		amount,
-	})) {
-		Ok(id) => println!("successfully created asset of id \"{}\"", id),
+	}));
+	println!("successfully created asset of id \"{}\"", id);
+}
+
+fn asset_edit_command() -> Command {
+	Command::new("edit")
+		.description("edit an asset")
+		.alias("e")
+		.usage("hm asset(a) edit(e) [uuid]")
+		.flag(Flag::new("title", FlagType::String).alias("t"))
+		.flag(Flag::new("description", FlagType::String).alias("d"))
+		.flag(Flag::new("amount", FlagType::Int).alias("a"))
+		.action(asset_edit_action)
+}
+
+fn asset_edit_action(c: &Context) {
+	if c.args.len() != 1 {
+		eprintln!("wrong amount of arguments passed\n");
+		c.help();
+		exit(1);
+	}
+
+	match Uuid::from_str(&c.args[0]) {
+		Ok(id) => {
+			let title = c.string_flag("title").ok();
+			let description = c.string_flag("description").ok();
+			let amount = c.int_flag("amount").ok().map(|amount| amount as i32);
+			let id = block_on(db::update(EditAsset {
+				id,
+				title,
+				description,
+				amount,
+			}));
+			println!("successfully updated asset #{}", id);
+		}
 		Err(e) => eprintln!("{}", e),
 	}
 }
@@ -76,8 +111,8 @@ fn asset_get_action(c: &Context) {
 	let id = &(c.args[0]);
 	match Uuid::from_str(id) {
 		Ok(uuid) => match block_on(db::get(uuid)) {
-			Ok(asset) => println!("{}", asset),
-			Err(e) => eprintln!("{}", e),
+			Some(asset) => println!("{}", asset),
+			None => eprintln!("could not find asset #{}", id),
 		},
 		Err(e) => eprintln!("{}", e),
 	}
@@ -98,8 +133,5 @@ fn asset_list_action(c: &Context) {
 		exit(1);
 	}
 
-	match block_on(db::list()) {
-		Ok(assets) => assets.iter().for_each(|asset| println!("{}", asset)),
-		Err(e) => eprintln!("{}", e),
-	};
+	println!("{}", block_on(db::list()).iter().join("\n\n"));
 }

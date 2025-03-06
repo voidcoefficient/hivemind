@@ -1,24 +1,8 @@
-use std::fmt::Display;
-
 use serde::{Deserialize, Serialize};
-use sqlx::types::time::PrimitiveDateTime;
 use uuid::Uuid;
 
 pub mod db;
-
-#[derive(Debug, Serialize, Deserialize, Default, Clone)]
-pub struct Asset {
-	pub id: Uuid,
-	pub title: String,
-	pub description: Option<String>,
-	// TODO: pub location: Location,
-	// TODO: tags
-	// pub tags: Vec<String>,
-	// pub tags: Vec<Tag>,
-	pub amount: i32,
-	pub created_at: i64,
-	pub updated_at: i64,
-}
+pub mod model;
 
 #[derive(Debug, Serialize, Deserialize, Default, Clone)]
 pub struct CreateAsset {
@@ -27,23 +11,10 @@ pub struct CreateAsset {
 	pub amount: Option<i32>,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct GetAsset {
+#[derive(Debug, Serialize, Deserialize, Default, Clone)]
+pub struct EditAsset {
 	pub id: Uuid,
-	pub title: String,
+	pub title: Option<String>,
 	pub description: Option<String>,
-	pub amount: i32, // TODO: should be u32
-	pub created_at: PrimitiveDateTime,
-	pub updated_at: PrimitiveDateTime,
-}
-
-impl Display for GetAsset {
-	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-		let description = self.description.clone().unwrap_or("-".to_string());
-		write!(
-			f,
-			"asset\t\t{}\ntitle:\t\t{}\ndescription:\t{}\namount:\t\t{}\ncreated at:\t{}\nupdated at:\t{}\n",
-			self.id, self.title, description, self.amount, self.created_at, self.updated_at,
-		)
-	}
+	pub amount: Option<i32>,
 }

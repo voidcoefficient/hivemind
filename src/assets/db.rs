@@ -1,57 +1,86 @@
-use std::env;
+use std::process::exit;
 
-use anyhow::Result;
-use sqlx::{PgPool, query};
+use sea_orm::ActiveValue::Set;
+use sea_orm::{ActiveModelTrait, EntityTrait};
 use uuid::Uuid;
 
-use super::{CreateAsset, GetAsset};
+use crate::db::db;
 
-pub async fn insert(asset: CreateAsset) -> Result<String> {
-	let pool = &PgPool::connect(&env::var("DATABASE_URL")?).await?;
-	let rec = query!(
-		r#"insert into assets (id, title, description, amount) values ($1, $2, $3, $4) returning id"#,
-		uuid::Uuid::new_v4(),
-		asset.title,
-		asset.description,
-		asset.amount,
-	)
-	.fetch_one(pool)
-	.await?;
+use super::model::{ActiveModel, Entity as Asset, Model};
+use super::{CreateAsset, EditAsset};
 
-	Ok(rec.id.to_string())
+pub async fn insert(create_asset: CreateAsset) -> String {
+	let db = &db().await;
+	let asset: ActiveModel = ActiveModel {
+		id: Set(Uuid::new_v4()),
+		title: Set(create_asset.title),
+		description: Set(create_asset.description),
+		amount: Set(create_asset.amount.unwrap_or_default()),
+		..Default::default()
+	};
+
+	match asset.insert(db).await {
+		Ok(row) => row.id.to_string(),
+		Err(e) => {
+			eprintln!("{}", e);
+			exit(1);
+		}
+	}
 }
 
-pub async fn get(id: Uuid) -> Result<GetAsset> {
-	let pool = &PgPool::connect(&env::var("DATABASE_URL")?).await?;
-	let rec = query!(r#"select * from assets where id = $1"#, id,)
-		.fetch_one(pool)
-		.await?;
+pub async fn update(edit_asset: EditAsset) -> String {
+	let db = &db().await;
+	match Asset::find_by_id(edit_asset.id).one(db).await {
+		Ok(row) => match row {
+			Some(row) => {
+				let mut asset: super::model::ActiveModel = row.into();
 
-	Ok(GetAsset {
-		id: rec.id,
-		title: rec.title,
-		description: rec.description,
-		amount: rec.amount,
-		created_at: rec.created_at,
-		updated_at: rec.updated_at,
-	})
+				if let Some(title) = edit_asset.title {
+					asset.title = Set(title);
+				}
+				if let Some(description) = edit_asset.description {
+					asset.description = Set(Some(description));
+				}
+				if let Some(amount) = edit_asset.amount {
+					asset.amount = Set(amount);
+				}
+
+				match asset.update(db).await {
+					Ok(new_row) => new_row.id.to_string(),
+					Err(e) => {
+						eprintln!("{}", e);
+						exit(1);
+					}
+				}
+			}
+			None => {
+				eprintln!("could not find asset of #{}", edit_asset.id);
+				exit(1);
+			}
+		},
+		Err(e) => {
+			eprintln!("{}", e);
+			exit(1);
+		}
+	}
 }
 
-pub async fn list() -> Result<Vec<GetAsset>> {
-	let pool = &PgPool::connect(&env::var("DATABASE_URL")?).await?;
-	let rec = query!(r#"select * from assets"#).fetch_all(pool).await?;
+pub async fn get(id: Uuid) -> Option<Model> {
+	match Asset::find_by_id(id).one(&db().await).await {
+		Ok(asset) => asset,
+		Err(e) => {
+			eprintln!("{}", e);
+			exit(1);
+		}
+	}
+}
 
-	Ok(
-		rec
-			.iter()
-			.map(|rec| GetAsset {
-				id: rec.id,
-				title: rec.title.clone(),
-				description: rec.description.clone(),
-				amount: rec.amount,
-				created_at: rec.created_at,
-				updated_at: rec.updated_at,
-			})
-			.collect(),
-	)
+pub async fn list() -> Vec<Model> {
+	match Asset::find().all(&db().await).await {
+		Ok(assets) => assets,
+		Err(e) => {
+			eprintln!("{}", e);
+			exit(1);
+		}
+	}
 }
