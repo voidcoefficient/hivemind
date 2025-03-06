@@ -72,7 +72,7 @@ fn asset_get_action(c: &Context) {
 	let id = &(c.args[0]);
 	match Uuid::from_str(id) {
 		Ok(uuid) => match block_on(db::get(uuid)) {
-			Ok(asset) => println!("{:?}", asset),
+			Ok(asset) => println!("{}", asset),
 			Err(e) => eprintln!("{}", e),
 		},
 		Err(e) => eprintln!("{}", e),
@@ -95,7 +95,7 @@ fn asset_list_action(c: &Context) {
 	}
 
 	match block_on(db::list()) {
-		Ok(assets) => assets.iter().for_each(|asset| println!("{:?}", asset)),
+		Ok(assets) => assets.iter().for_each(|asset| println!("{}", asset)),
 		Err(e) => eprintln!("{}", e),
 	};
 }
