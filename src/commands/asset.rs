@@ -5,7 +5,7 @@ use itertools::Itertools;
 use seahorse::{Command, Context, Flag, FlagType};
 use uuid::Uuid;
 
-use crate::assets::{CreateAsset, EditAsset, db};
+use crate::models::assets::{CreateAsset, EditAsset, db};
 
 pub fn asset_command() -> Command {
 	Command::new("asset")

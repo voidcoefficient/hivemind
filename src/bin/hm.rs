@@ -1,6 +1,6 @@
 use std::env;
 
-use hvmd::commands::{asset::asset_command, task::task_command};
+use hvmd::commands::{asset::asset_command, tag::tag_command, task::task_command};
 use seahorse::{App, Flag, FlagType};
 use tracing::Level;
 use tracing_subscriber::fmt;
@@ -31,6 +31,7 @@ async fn main() -> anyhow::Result<()> {
 		.usage("hm [args]")
 		.command(asset_command())
 		.command(task_command())
+		.command(tag_command())
 		.flag(Flag::new("debug", FlagType::Bool).description("enables debugging information"));
 
 	let debug = args.iter().any(|arg| arg == "--debug");

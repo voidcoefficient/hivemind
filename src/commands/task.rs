@@ -5,7 +5,7 @@ use itertools::Itertools;
 use seahorse::{Command, Context, Flag, FlagType};
 use uuid::Uuid;
 
-use crate::tasks::{CreateTask, EditLastTask, EditTask, db};
+use crate::models::tasks::{CreateTask, EditLastTask, EditTask, db};
 
 pub fn task_command() -> Command {
 	Command::new("task")
