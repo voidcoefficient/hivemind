@@ -1,5 +1,5 @@
-use std::fmt::Display;
-
+use super::model::Entity as Task;
+use crate::models::tags::model::Entity as Tag;
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -12,23 +12,20 @@ pub struct Model {
 	pub title: String,
 	pub description: Option<String>,
 	pub completed: bool,
-	//  TODO: pub tags: Vec<Tag>,
 	pub created_at: DateTime,
 	pub updated_at: DateTime,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
-pub enum Relation {}
+pub enum Relation {
+	#[sea_orm(has_many = "crate::models::tags::model::Entity")]
+	Tag,
+}
 
-impl ActiveModelBehavior for ActiveModel {}
-
-impl Display for Model {
-	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-		let description = self.description.clone().unwrap_or("".to_string());
-		write!(
-			f,
-			"asset\t\t{}\ntitle\t\t{}\ndescription\t{}\ncompleted\t{}\ncreated at\t{}\nupdated at\t{}",
-			self.id, self.title, description, self.completed, self.created_at, self.updated_at,
-		)
+impl Related<Task> for Tag {
+	fn to() -> RelationDef {
+		Relation::Tag.def()
 	}
 }
+
+impl ActiveModelBehavior for ActiveModel {}

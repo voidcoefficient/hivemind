@@ -5,7 +5,7 @@ use itertools::Itertools;
 use seahorse::{Command, Context, Flag, FlagType};
 use uuid::Uuid;
 
-use crate::models::tasks::{CreateTask, EditLastTask, EditTask, db};
+use crate::models::tasks::{CreateTask, EditLastTask, EditTask, GetTask, db};
 
 pub fn task_command() -> Command {
 	Command::new("task")
@@ -30,6 +30,7 @@ fn task_add_command() -> Command {
 				.alias("c")
 				.description("if the task is completed already"),
 		)
+		.flag(Flag::new("tag", FlagType::String).alias("t"))
 		.action(task_add_action)
 }
 
@@ -43,10 +44,25 @@ fn task_add_action(c: &Context) {
 	let title = c.args.join(" ");
 	let description = c.string_flag("description").ok();
 	let completed = Some(c.bool_flag("completed"));
+	let tags = {
+		match c.string_flag("tag") {
+			Ok(tag) => [tag]
+				.iter()
+				.map(|tag| {
+					Uuid::from_str(tag).unwrap_or_else(|err| {
+						eprintln!("{}", err);
+						exit(1);
+					})
+				})
+				.collect_vec(),
+			Err(_) => vec![],
+		}
+	};
 	let id = block_on(db::insert(CreateTask {
 		title,
 		description,
 		completed,
+		tags,
 	}));
 	println!("successfully created task of id \"{}\"", id);
 }
@@ -150,7 +166,7 @@ fn task_get_action(c: &Context) {
 	if is_last {
 		match block_on(db::get_last()) {
 			Some(last_task) => {
-				println!("{}", last_task);
+				println!("{}", GetTask::from(&last_task));
 				exit(0);
 			}
 			None => {
@@ -169,7 +185,7 @@ fn task_get_action(c: &Context) {
 	let id = &(c.args[0]);
 	match Uuid::from_str(id) {
 		Ok(uuid) => match block_on(db::get(uuid)) {
-			Some(task) => println!("{}", task),
+			Some(task) => println!("{}", GetTask::from(&task)),
 			None => eprintln!("could not find task \"{}\"", id),
 		},
 		Err(e) => eprintln!("{}", e),
@@ -191,13 +207,19 @@ fn task_list_action(c: &Context) {
 	if c.bool_flag("completed") {
 		println!(
 			"{}",
-			block_on(db::list_by_completed(true)).iter().join("\n\n")
+			block_on(db::list_by_completed(true))
+				.iter()
+				.map(GetTask::from)
+				.join("\n\n")
 		);
 		exit(0);
 	} else if c.bool_flag("pending") {
 		println!(
 			"{}",
-			block_on(db::list_by_completed(false)).iter().join("\n\n")
+			block_on(db::list_by_completed(false))
+				.iter()
+				.map(GetTask::from)
+				.join("\n\n")
 		);
 		exit(0);
 	}

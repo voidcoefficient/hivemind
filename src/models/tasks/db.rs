@@ -1,5 +1,6 @@
 use std::process::exit;
 
+use itertools::Itertools;
 use sea_orm::ActiveValue::Set;
 use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, QueryOrder};
 use uuid::Uuid;
@@ -7,7 +8,8 @@ use uuid::Uuid;
 use crate::db::db;
 
 use super::model::{ActiveModel, Column, Entity as Task, Model};
-use super::{CreateTask, EditLastTask, EditTask};
+use super::{CreateTask, EditLastTask, EditTask, GetTask};
+use crate::models::tags::model::Entity as Tag;
 
 pub async fn insert(create_task: CreateTask) -> String {
 	let db = &db().await;
@@ -114,13 +116,14 @@ pub async fn get_last() -> Option<Model> {
 	}
 }
 
-pub async fn list() -> Vec<Model> {
+pub async fn list() -> Vec<GetTask> {
 	match Task::find()
+		.find_also_related(Tag)
 		.order_by_desc(Column::UpdatedAt)
 		.all(&db().await)
 		.await
 	{
-		Ok(task) => task,
+		Ok(task) => task.iter().map(GetTask::from).collect_vec(),
 		Err(e) => {
 			eprintln!("{}", e);
 			exit(1);
