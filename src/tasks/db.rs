@@ -9,13 +9,13 @@ use crate::db::db;
 use super::model::{ActiveModel, Column, Entity as Asset, Model};
 use super::{CreateTask, EditLastTask, EditTask};
 
-pub async fn insert(create_asset: CreateTask) -> String {
+pub async fn insert(create_task: CreateTask) -> String {
 	let db = &db().await;
 	let asset: ActiveModel = ActiveModel {
 		id: Set(Uuid::new_v4()),
-		title: Set(create_asset.title),
-		description: Set(create_asset.description),
-		completed: Set(create_asset.completed.unwrap_or_default()),
+		title: Set(create_task.title),
+		description: Set(create_task.description),
+		completed: Set(create_task.completed.unwrap_or_default()),
 		..Default::default()
 	};
 
@@ -28,58 +28,43 @@ pub async fn insert(create_asset: CreateTask) -> String {
 	}
 }
 
-pub async fn update(edit_asset: EditTask) -> String {
-	let db = &db().await;
-	match Asset::find_by_id(edit_asset.id).one(db).await {
-		Ok(row) => match row {
-			Some(row) => {
-				let mut asset: super::model::ActiveModel = row.into();
-
-				if let Some(title) = edit_asset.title {
-					asset.title = Set(title);
-				}
-				if let Some(description) = edit_asset.description {
-					asset.description = Set(Some(description));
-				}
-				if let Some(completed) = edit_asset.completed {
-					asset.completed = Set(completed);
-				}
-
-				match asset.update(db).await {
-					Ok(new_row) => new_row.id.to_string(),
-					Err(e) => {
-						eprintln!("{}", e);
-						exit(1);
-					}
-				}
-			}
-			None => {
-				eprintln!("could not find task \"{}\"", edit_asset.id);
-				exit(1);
-			}
-		},
-		Err(e) => {
-			eprintln!("{}", e);
-			exit(1);
-		}
-	}
+pub async fn update(edit_task: EditTask) -> String {
+	_update(edit_task, false).await
 }
 
-// TODO: find a better pattern for dealing with the last element
-pub async fn update_last(edit_asset: EditLastTask) -> String {
+pub async fn update_last(edit_task: EditLastTask) -> String {
+	_update(
+		EditTask {
+			title: edit_task.title,
+			description: edit_task.description,
+			completed: edit_task.completed,
+			..Default::default()
+		},
+		true,
+	)
+	.await
+}
+
+async fn _update(edit_task: EditTask, is_last: bool) -> String {
 	let db = &db().await;
-	match Asset::find().order_by_desc(Column::UpdatedAt).one(db).await {
+	let command = if is_last {
+		Asset::find().order_by_desc(Column::UpdatedAt)
+	} else {
+		Asset::find_by_id(edit_task.id)
+	};
+
+	match command.one(db).await {
 		Ok(row) => match row {
 			Some(row) => {
 				let mut asset: super::model::ActiveModel = row.into();
 
-				if let Some(title) = edit_asset.title {
+				if let Some(title) = edit_task.title {
 					asset.title = Set(title);
 				}
-				if let Some(description) = edit_asset.description {
+				if let Some(description) = edit_task.description {
 					asset.description = Set(Some(description));
 				}
-				if let Some(completed) = edit_asset.completed {
+				if let Some(completed) = edit_task.completed {
 					asset.completed = Set(completed);
 				}
 
