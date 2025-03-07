@@ -5,7 +5,7 @@ use itertools::Itertools;
 use seahorse::{Command, Context, Flag, FlagType};
 use uuid::Uuid;
 
-use crate::tasks::{CreateTask, EditTask, db};
+use crate::tasks::{CreateTask, EditLastTask, EditTask, db};
 
 pub fn task_command() -> Command {
 	Command::new("task")
@@ -56,6 +56,11 @@ fn task_edit_command() -> Command {
 		.description("edit a task")
 		.alias("e")
 		.usage("hm task(t) edit(e) [uuid]")
+		.flag(
+			Flag::new("last", FlagType::Bool)
+				.alias("l")
+				.description("edit the last task"),
+		)
 		.flag(Flag::new("title", FlagType::String).alias("t"))
 		.flag(Flag::new("description", FlagType::String).alias("d"))
 		.flag(Flag::new("completed", FlagType::Bool).alias("c"))
@@ -63,18 +68,29 @@ fn task_edit_command() -> Command {
 }
 
 fn task_edit_action(c: &Context) {
-	if c.args.is_empty() {
+	let is_last = c.bool_flag("last");
+	if c.args.is_empty() && !is_last {
 		eprintln!("wrong amount of arguments passed\n");
 		c.help();
 		exit(1);
 	}
 
+	let title = c.string_flag("title").ok();
+	let description = c.string_flag("description").ok();
+	let completed = Some(c.bool_flag("completed"));
+
+	if is_last {
+		let id = block_on(db::update_last(EditLastTask {
+			title,
+			description,
+			completed,
+		}));
+		println!("successfully updated task \"{}\"", id);
+		exit(0);
+	}
+
 	match Uuid::from_str(&c.args[0]) {
 		Ok(id) => {
-			let title = c.string_flag("title").ok();
-			let description = c.string_flag("description").ok();
-			let completed = Some(c.bool_flag("completed"));
-			dbg!(&completed);
 			let id = block_on(db::update(EditTask {
 				id,
 				title,
@@ -121,12 +137,32 @@ fn task_get_command() -> Command {
 		.description("get one task")
 		.alias("g")
 		.usage("hm task(t) get(g) [uuid]")
+		.flag(
+			Flag::new("last", FlagType::Bool)
+				.alias("l")
+				.description("get the last created/updated task"),
+		)
 		.action(task_get_action)
 }
 
 fn task_get_action(c: &Context) {
+	let is_last = c.bool_flag("last");
+	if is_last {
+		match block_on(db::get_last()) {
+			Some(last_task) => {
+				println!("{}", last_task);
+				exit(0);
+			}
+			None => {
+				eprintln!("could not find any task");
+				exit(1);
+			}
+		}
+	}
+
 	if c.args.len() != 1 {
-		eprintln!("wrong amount of arguments passed. try running `hm task get --help`");
+		eprintln!("wrong amount of arguments passed\n");
+		c.help();
 		exit(1);
 	}
 

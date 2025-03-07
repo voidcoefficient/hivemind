@@ -18,3 +18,10 @@ pub struct EditTask {
 	pub description: Option<String>,
 	pub completed: Option<bool>,
 }
+
+#[derive(Debug, Serialize, Deserialize, Default, Clone)]
+pub struct EditLastTask {
+	pub title: Option<String>,
+	pub description: Option<String>,
+	pub completed: Option<bool>,
+}
