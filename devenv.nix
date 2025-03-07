@@ -5,10 +5,11 @@
   env.DATABASE_URL = "postgres://postgres:postgres@localhost:5432/hivemind";
 
   # https://devenv.sh/packages/
-  packages = with pkgs; [ sqlx-cli nats-server nats-streaming-server natscli nats-top nsc ];
+  packages = with pkgs; [ sqlx-cli nats-server nats-streaming-server natscli nats-top nsc bun ];
 
   # https://devenv.sh/languages/
-  languages.deno.enable = true;
+  languages.javascript.bun.enable = true;
+  languages.javascript.bun.install.enable = true;
 
   # https://devenv.sh/processes/
   processes.nats-server.exec = "nats-server -js -c js.conf";

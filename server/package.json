@@ -1,0 +1,26 @@
+{
+  "name": "hivemind-server",
+  "version": "0.1.0",
+  "scripts": {
+    "dev": "tsx src/index.ts",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "packageManager": "pnpm@10.5.2",
+  "dependencies": {
+    "@logtape/logtape": "^0.9.0",
+    "dotenv": "^16.4.7",
+    "drizzle-orm": "^0.40.0",
+    "drizzle-typebox": "^0.3.0",
+    "elysia": "^1.2.25",
+    "pg": "^8.13.3",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "@types/pg": "^8.11.11",
+    "drizzle-kit": "^0.30.5",
+    "tsx": "^4.19.3"
+  },
+  "override": {
+    "@sinclair/typebox": "0.32.4"
+  }
+}
